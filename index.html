@@ -2,31 +2,55 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>EXO</title>
+    <title>EXO Graph OSINT</title>
+
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-main: #0b0c0e;
+            --panel-bg: #131519;
+            --drawer-bg: #1a1d24;
+            --card-bg: #222630;
+            --card-hover: #2b303c;
+            --text-main: #f0f2f5;
+            --text-muted: #8a929e;
+            --btn-bg: #232732;
+            --btn-hover: #2f3444;
+            --action-btn-bg: #2b303c;
+            --action-btn-hover: #383e50;
+            --input-bg: #131519;
+            --accent-blue: rgba(56, 189, 248, 0.15);
+            --accent-green: rgba(52, 211, 153, 0.15);
+            --accent-purple: rgba(167, 139, 250, 0.15);
+            --accent-orange: rgba(251, 146, 60, 0.15);
+        }
+
         * { 
             box-sizing: border-box; 
             margin: 0; 
             padding: 0; 
-            font-family: 'JetBrains Mono', monospace !important; 
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif !important; 
+            font-weight: 300;
+            -webkit-font-smoothing: antialiased;
         }
+
         body { 
-            background-color: #121212; 
-            color: #e5e5e5; 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
             display: flex; 
             height: 100vh; 
             overflow: hidden; 
             position: relative; 
+            transition: background-color 0.25s, color 0.25s;
         }
         
         #network { 
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #121212;
-            background-image: radial-gradient(#262626 1.5px, transparent 1.5px);
-            background-size: 24px 24px;
+            background-color: var(--bg-main);
+            background-image: radial-gradient(rgba(255,255,255,0.06) 1.2px, transparent 1.2px);
+            background-size: 22px 22px;
             z-index: 1;
         }
 
@@ -34,181 +58,347 @@
 
         #nav-rail {
             position: absolute;
-            top: 12px;
-            left: 12px;
-            bottom: 12px;
-            width: 48px;
-            background: #1e1e1e;
+            top: 18px;
+            left: 18px;
+            bottom: 18px;
+            width: 52px;
+            background: var(--panel-bg);
+            border: none;
             border-radius: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 12px 0;
+            padding: 14px 0;
             gap: 12px;
-            z-index: 20;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 200;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+            transition: background 0.25s;
         }
 
         .rail-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #2a2a2a;
+            background: transparent;
             border: none;
-            color: #737373;
+            color: var(--text-muted);
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.18s ease;
         }
 
-        .rail-btn:hover, .rail-btn.active {
-            background: #3f3f3f;
-            color: #ffffff;
-        }
+        .rail-btn:hover { background: var(--card-bg); color: var(--text-main); }
+        .rail-btn.active { background: var(--btn-bg); color: var(--text-main); }
 
         #drawer {
             position: absolute;
-            top: 12px;
-            left: 68px;
-            width: 250px;
-            background: #262626;
+            top: 18px;
+            left: 80px;
+            width: 320px;
+            max-height: calc(100vh - 36px);
+            background: var(--drawer-bg);
+            border: none;
             border-radius: 16px;
-            padding: 16px;
+            padding: 18px;
             display: none;
             flex-direction: column;
             gap: 12px;
-            z-index: 15;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 150;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
         }
 
-        #drawer.open { display: flex; }
+        #drawer::-webkit-scrollbar { width: 4px; }
+        #drawer::-webkit-scrollbar-thumb { background: var(--btn-bg); border-radius: 4px; }
+
+        #drawer.open { display: flex !important; }
 
         .drawer-tab { display: none; }
         .drawer-tab.active { display: flex; flex-direction: column; gap: 12px; }
 
-        .brand {
-            font-size: 0.8rem;
-            font-weight: 700;
-            letter-spacing: 3px;
-            color: #d4d4d4;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #333333;
-        }
-
         .section-title {
-            font-size: 0.6rem;
+            font-size: 0.65rem;
             font-weight: 600;
-            color: #737373;
+            color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
+            letter-spacing: 0.12em;
+            margin-bottom: 4px;
         }
 
         input, select, button {
             width: 100%;
-            background: #1e1e1e;
-            border: 1px solid #333333;
-            color: #e5e5e5;
-            padding: 8px 10px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            margin-bottom: 8px;
+            background: var(--card-bg);
+            border: none;
+            color: var(--text-main);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
             outline: none;
+            transition: all 0.18s ease;
         }
 
-        input:focus, select:focus { border-color: #555555; }
+        input:focus, select:focus { background: var(--card-hover); }
 
         button.action-btn {
-            background: #333333;
-            color: #e5e5e5;
-            font-weight: 600;
-            border: 1px solid #404040;
+            background: var(--action-btn-bg);
+            color: var(--text-main);
+            font-weight: 400;
+            border: none;
             cursor: pointer;
             margin-bottom: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 8px;
+            border-radius: 10px;
+            padding: 10px 14px;
         }
 
-        button.action-btn:hover { background: #404040; }
+        button.action-btn:hover { background: var(--action-btn-hover); }
 
-        .drag-list { display: flex; flex-direction: column; gap: 8px; }
+        .drag-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
 
-        .drag-item {
+        .drag-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: var(--card-bg);
+            border: none;
+            border-radius: 12px;
+            cursor: grab;
+            user-select: none;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            min-height: 72px;
+        }
+
+        .drag-card * { pointer-events: none; }
+
+        .drag-card:hover {
+            background: var(--card-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        .drag-card:active {
+            cursor: grabbing;
+            transform: translateY(0);
+        }
+
+        .card-icon-box {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px 10px;
-            background: #1e1e1e;
-            border: 1px solid #333333;
-            border-radius: 8px;
-            cursor: grab;
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: #cccccc;
-            user-select: none;
-            transition: border 0.15s;
+            justify-content: center;
+            margin-bottom: 6px;
         }
 
-        .drag-item * { pointer-events: none; }
-        .drag-item:hover { border-color: #555555; }
-        .drag-item:active { cursor: grabbing; }
+        .badge-blue { background: var(--accent-blue); color: #38bdf8; }
+        .badge-green { background: var(--accent-green); color: #34d399; }
+        .badge-purple { background: var(--accent-purple); color: #c084fc; }
+        .badge-orange { background: var(--accent-orange); color: #fb923c; }
 
-        .drag-icon { width: 18px; height: 18px; }
-        .status { font-size: 0.65rem; color: #737373; text-align: center; line-height: 1.3; min-height: 14px; }
-        
+        .card-title {
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--text-main);
+            line-height: 1.2;
+        }
+
+        .card-category {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .status { font-size: 0.72rem; color: var(--text-muted); text-align: center; line-height: 1.4; min-height: 16px; margin-top: 2px; }
         #fileInput { display: none; }
+
+        .slider-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--card-bg);
+            padding: 8px 12px;
+            border: none;
+            border-radius: 10px;
+            margin-bottom: 4px;
+        }
+        .slider-control span { font-size: 0.75rem; color: var(--text-main); }
+        .slider-control input[type=range] { width: 55px; margin: 0; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="nav-rail">
-        <button class="rail-btn" onclick="toggleTab('add-tab', this)" title="Палитра">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        <button class="rail-btn" onclick="toggleTab('add-tab', this)" title="Палитра сущностей">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
         </button>
         <button class="rail-btn" onclick="toggleTab('link-tab', this)" title="Связать">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
         <button class="rail-btn" onclick="toggleTab('crypto-tab', this)" title="Блокчейн">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 8h6M9 12h6M9 16h6M12 5v14"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9 8h6M9 12h6M9 16h6M12 5v14"/></svg>
         </button>
         <button class="rail-btn" onclick="toggleTab('file-tab', this)" title="Проект">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        </button>
+        <button class="rail-btn" onclick="toggleTab('settings-tab', this)" title="Настройки">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 1.7-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.4v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.7-1.7.1-.1A1.7 1.7 0 0 0 8.4 15a1.7 1.7 0 0 0-1.5-1H6.7v-2.4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9L8 8.6l1.7-1.7.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2h2.4v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.7 1.7-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1z"/></svg>
         </button>
     </div>
 
     <div id="drawer">
-        <div class="brand">EXO</div>
-
         <div id="add-tab" class="drawer-tab">
             <div class="section-title">Перетащите на поле</div>
-            <div class="drag-list">
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'person')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><circle cx="24" cy="14" r="7" fill="#cccccc"/><path d="M10 38c0-7.7 6.3-14 14-14s14 6.3 14 14Z" fill="#cccccc"/></svg></div> Человек
+            
+            <div class="drag-grid">
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'person')">
+                    <div class="card-icon-box badge-blue"><svg width="18" height="18" viewBox="0 0 48 48"><circle cx="24" cy="14" r="7" fill="currentColor"/><path d="M10 38c0-7.7 6.3-14 14-14s14 6.3 14 14Z" fill="currentColor"/></svg></div>
+                    <div>
+                        <div class="card-title">Человек</div>
+                        <div class="card-category">Субъект</div>
+                    </div>
                 </div>
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'phone')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><rect x="15" y="8" width="18" height="32" rx="3" fill="#cccccc"/><rect x="18" y="12" width="12" height="20" fill="#1e1e1e"/></svg></div> Телефон
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'chat')">
+                    <div class="card-icon-box badge-blue"><svg width="18" height="18" viewBox="0 0 48 48"><path d="M12 12h24a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-8l-8 6v-6h-4a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4z" fill="currentColor"/></svg></div>
+                    <div>
+                        <div class="card-title">Соцсеть / Чат</div>
+                        <div class="card-category">Профиль</div>
+                    </div>
                 </div>
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'crypto')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="#cccccc" stroke-width="3"/><path d="M22 15v3m4-3v3m-4 0h7a3.5 3.5 0 0 1 0 7h-7m0 0h8a3.5 3.5 0 0 1 0 7h-8m0-14v14" stroke="#cccccc" stroke-width="2" stroke-linecap="round" fill="none"/></svg></div> Криптокошелек
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'org')">
+                    <div class="card-icon-box badge-blue"><svg width="18" height="18" viewBox="0 0 48 48"><path d="M14 38V14h20v24M19 19h3M26 19h3M19 25h3M26 25h3M19 31h3M26 31h3" stroke="currentColor" stroke-width="3" fill="none"/></svg></div>
+                    <div>
+                        <div class="card-title">Организация</div>
+                        <div class="card-category">Компания</div>
+                    </div>
                 </div>
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'email')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="24" rx="3" fill="#cccccc"/><path d="M8 14l16 12 16-12" stroke="#1e1e1e" stroke-width="3" fill="none"/></svg></div> Email
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'crypto')">
+                    <div class="card-icon-box badge-green"><svg width="18" height="18" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="3"/><path d="M22 15v3m4-3v3m-4 0h7a3.5 3.5 0 0 1 0 7h-7m0 0h8a3.5 3.5 0 0 1 0 7h-8m0-14v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></div>
+                    <div>
+                        <div class="card-title">Крипто / TON</div>
+                        <div class="card-category">Кошелек</div>
+                    </div>
                 </div>
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'domain')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="#cccccc" stroke-width="3"/><path d="M8 24h32M24 8c5 5 5 24 0 32M24 8c-5 5-5 24 0 32" fill="none" stroke="#cccccc" stroke-width="2.5"/></svg></div> Домен / IP
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'bank')">
+                    <div class="card-icon-box badge-green">
+                        <svg width="18" height="18" viewBox="0 0 48 48">
+                            <polygon points="24,10 8,20 40,20" fill="currentColor"/>
+                            <rect x="10" y="22" width="28" height="3" fill="currentColor"/>
+                            <rect x="12" y="27" width="4" height="10" fill="currentColor"/>
+                            <rect x="18" y="27" width="4" height="10" fill="currentColor"/>
+                            <rect x="26" y="27" width="4" height="10" fill="currentColor"/>
+                            <rect x="32" y="27" width="4" height="10" fill="currentColor"/>
+                            <rect x="8" y="38" width="32" height="3" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="card-title">Банк</div>
+                        <div class="card-category">Счет</div>
+                    </div>
                 </div>
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'bank')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><path d="M8 20h32M11 20v14M20 20v14M28 20v14M37 20v14M6 38h36M24 8l16 12H8z" fill="#cccccc"/></svg></div> Банк
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'card')">
+                    <div class="card-icon-box badge-green"><svg width="18" height="18" viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="24" rx="4" fill="currentColor"/><rect x="8" y="18" width="32" height="5" fill="var(--panel-bg)"/><circle cx="15" cy="30" r="2.5" fill="var(--text-muted)"/><circle cx="21" cy="30" r="2.5" fill="var(--text-muted)"/></svg></div>
+                    <div>
+                        <div class="card-title">Карта</div>
+                        <div class="card-category">Платежи</div>
+                    </div>
                 </div>
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'org')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><path d="M14 38V14h20v24M19 19h3M26 19h3M19 25h3M26 25h3M19 31h3M26 31h3" stroke="#cccccc" stroke-width="3" fill="none"/></svg></div> Организация
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'phone')">
+                    <div class="card-icon-box badge-purple"><svg width="18" height="18" viewBox="0 0 48 48"><rect x="15" y="8" width="18" height="32" rx="3" fill="currentColor"/><rect x="18" y="12" width="12" height="20" fill="var(--panel-bg)"/></svg></div>
+                    <div>
+                        <div class="card-title">Телефон</div>
+                        <div class="card-category">Связь</div>
+                    </div>
                 </div>
-                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'info')">
-                    <div class="drag-icon"><svg viewBox="0 0 48 48"><path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="#cccccc"/><path d="M28 10v10h10" fill="#888888"/><path d="M17 26h14M17 31h10" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round"/></svg></div> Документ / Инфо
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'email')">
+                    <div class="card-icon-box badge-purple"><svg width="18" height="18" viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="24" rx="3" fill="currentColor"/><path d="M8 14l16 12 16-12" stroke="var(--panel-bg)" stroke-width="3" fill="none"/></svg></div>
+                    <div>
+                        <div class="card-title">Email</div>
+                        <div class="card-category">Почта</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'domain')">
+                    <div class="card-icon-box badge-purple"><svg width="18" height="18" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="3"/><path d="M8 24h32M24 8c5 5 5 24 0 32M24 8c-5 5-5 24 0 32" fill="none" stroke="currentColor" stroke-width="2.5"/></svg></div>
+                    <div>
+                        <div class="card-title">Домен / IP</div>
+                        <div class="card-category">Сеть</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'location')">
+                    <div class="card-icon-box badge-purple"><svg width="18" height="18" viewBox="0 0 48 48"><path d="M24 10a10 10 0 0 0-10 10c0 7.5 10 18 10 18s10-10.5 10-18a10 10 0 0 0-10-10zm0 13a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="currentColor"/></svg></div>
+                    <div>
+                        <div class="card-title">Локация</div>
+                        <div class="card-category">Адрес</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'passport')">
+                    <div class="card-icon-box badge-orange"><svg width="18" height="18" viewBox="0 0 48 48"><rect x="12" y="8" width="24" height="32" rx="3" fill="currentColor"/><rect x="17" y="14" width="14" height="10" rx="1" fill="var(--panel-bg)"/><rect x="17" y="27" width="14" height="2" fill="var(--panel-bg)"/><rect x="17" y="32" width="10" height="2" fill="var(--panel-bg)"/></svg></div>
+                    <div>
+                        <div class="card-title">Паспорт</div>
+                        <div class="card-category">Документ</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'car')">
+                    <div class="card-icon-box badge-orange"><svg width="18" height="18" viewBox="0 0 48 48"><path d="M10 26l3-8a3 3 0 0 1 3-2h16a3 3 0 0 1 3 2l3 8v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-2H14v2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V26zm5-2a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm18 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="currentColor"/></svg></div>
+                    <div>
+                        <div class="card-title">Авто</div>
+                        <div class="card-category">Транспорт</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'info')">
+                    <div class="card-icon-box badge-orange"><svg width="18" height="18" viewBox="0 0 48 48"><path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="currentColor"/><path d="M28 10v10h10" fill="var(--text-muted)"/></svg></div>
+                    <div>
+                        <div class="card-title">Заметка</div>
+                        <div class="card-category">Инфо</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'contract')">
+                    <div class="card-icon-box badge-orange"><svg width="18" height="18" viewBox="0 0 48 48"><path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="currentColor"/><path d="M28 10v10h10" fill="var(--text-muted)"/><circle cx="28" cy="32" r="5" fill="none" stroke="var(--panel-bg)" stroke-width="2"/></svg></div>
+                    <div>
+                        <div class="card-title">Сделка</div>
+                        <div class="card-category">Договор</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'media')">
+                    <div class="card-icon-box badge-orange"><svg width="18" height="18" viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="18" cy="20" r="3" fill="currentColor"/><path d="M8 32l9-9 7 7 6-6 10 10" fill="none" stroke="currentColor" stroke-width="2.5"/></svg></div>
+                    <div>
+                        <div class="card-title">Медиа</div>
+                        <div class="card-category">Фото</div>
+                    </div>
+                </div>
+
+                <div class="drag-card" draggable="true" ondragstart="handleDragStart(event, 'device')">
+                    <div class="card-icon-box badge-orange"><svg width="18" height="18" viewBox="0 0 48 48"><rect x="12" y="12" width="24" height="16" rx="2" fill="currentColor"/><path d="M8 32h32a2 2 0 0 1 2 2v2H6v-2a2 2 0 0 1-2-2z" fill="currentColor"/></svg></div>
+                    <div>
+                        <div class="card-title">Устройство</div>
+                        <div class="card-category">MAC / Железо</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -242,6 +432,34 @@
             <button class="action-btn" onclick="document.getElementById('fileInput').click()">Открыть проект (.exo)</button>
             <input type="file" id="fileInput" accept=".exo,.json" onchange="importEXO(event)">
         </div>
+
+        <div id="settings-tab" class="drawer-tab">
+            <div class="section-title">Тема визуализации</div>
+            <select id="themeSelect" onchange="applyTheme(this.value)">
+                <option value="dark">Тёмная</option>
+                <option value="blood">Кровавая</option>
+                <option value="light">Светлая</option>
+                <option value="graphite">Графит</option>
+            </select>
+
+            <div class="section-title" style="margin-top: 8px;">Стиль стрелок</div>
+            <select id="arrowSelect" onchange="applyArrowStyle(this.value)">
+                <option value="vee">V-стрелки</option>
+                <option value="arrow">Классические</option>
+                <option value="bar">Полоски</option>
+                <option value="circle">Круги</option>
+                <option value="none">Без стрелок (линия)</option>
+            </select>
+
+            <div class="section-title" style="margin-top: 8px;">Режим перемещения</div>
+            <div class="slider-control">
+                <span id="physicsLabel">Физика графа</span>
+                <input type="range" id="physicsSlider" min="0" max="1" step="1" value="1" onchange="togglePhysics(this.value)">
+            </div>
+
+            <button class="action-btn" onclick="resetVisualizationSettings()">Сбросить оформление</button>
+            <div class="status" id="themeStatus">Тема: Тёмная</div>
+        </div>
     </div>
 
     <div id="network"></div>
@@ -252,16 +470,22 @@
 
         function toggleTab(tabId, btn) {
             const drawer = document.getElementById('drawer');
+            const targetTab = document.getElementById(tabId);
+            if (!drawer || !targetTab) return;
+
             if (currentTab === tabId && drawer.classList.contains('open')) {
                 drawer.classList.remove('open');
-                btn.classList.remove('active');
+                if (btn) btn.classList.remove('active');
                 currentTab = null;
                 return;
             }
+
             document.querySelectorAll('.drawer-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            btn.classList.add('active');
+
+            targetTab.classList.add('active');
+            if (btn) btn.classList.add('active');
+            
             drawer.classList.add('open');
             currentTab = tabId;
         }
@@ -276,19 +500,61 @@
             return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
         }
 
-        const icons = {
-            person: makeSvg(`<circle cx="24" cy="14" r="7" fill="#e5e5e5"/><path d="M10 38c0-7.7 6.3-14 14-14s14 6.3 14 14Z" fill="#e5e5e5"/>`),
-            phone: makeSvg(`<rect x="15" y="8" width="18" height="32" rx="3" fill="#e5e5e5"/><rect x="18" y="12" width="12" height="20" rx="1" fill="#18181b"/><circle cx="24" cy="35" r="1.5" fill="#18181b"/>`),
-            crypto: makeSvg(`<circle cx="24" cy="24" r="16" fill="none" stroke="#e5e5e5" stroke-width="3"/><path d="M22 15v3m4-3v3m-4 0h7a3.5 3.5 0 0 1 0 7h-7m0 0h8a3.5 3.5 0 0 1 0 7h-8m0-14v14" stroke="#e5e5e5" stroke-width="2" stroke-linecap="round" fill="none"/>`),
-            email: makeSvg(`<rect x="8" y="12" width="32" height="24" rx="3" fill="#e5e5e5"/><path d="M8 14l16 12 16-12" stroke="#18181b" stroke-width="3" fill="none"/>`),
-            domain: makeSvg(`<circle cx="24" cy="24" r="16" fill="none" stroke="#e5e5e5" stroke-width="3"/><path d="M8 24h32M24 8c5 5 5 24 0 32M24 8c-5 5-5 24 0 32" fill="none" stroke="#e5e5e5" stroke-width="2.5"/>`),
-            bank: makeSvg(`<path d="M8 20h32M11 20v14M20 20v14M28 20v14M37 20v14M6 38h36M24 8l16 12H8z" fill="#e5e5e5"/>`),
-            org: makeSvg(`<path d="M14 38V14h20v24M19 19h3M26 19h3M19 25h3M26 25h3M19 31h3M26 31h3" stroke="#e5e5e5" stroke-width="3" fill="none"/>`),
-            info: makeSvg(`<path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="#e5e5e5"/><path d="M28 10v10h10" fill="#888888"/><path d="M17 26h14M17 31h10" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>`)
+        const iconPaths = {
+            person: `<circle cx="24" cy="14" r="7" fill="ICON"/><path d="M10 38c0-7.7 6.3-14 14-14s14 6.3 14 14Z" fill="ICON"/>`,
+            phone: `<rect x="15" y="8" width="18" height="32" rx="3" fill="ICON"/><rect x="18" y="12" width="12" height="20" rx="1" fill="BG"/><circle cx="24" cy="35" r="1.5" fill="BG"/>`,
+            crypto: `<circle cx="24" cy="24" r="16" fill="none" stroke="ICON" stroke-width="3"/><path d="M22 15v3m4-3v3m-4 0h7a3.5 3.5 0 0 1 0 7h-7m0 0h8a3.5 3.5 0 0 1 0 7h-8m0-14v14" stroke="ICON" stroke-width="2" stroke-linecap="round" fill="none"/>`,
+            email: `<rect x="8" y="12" width="32" height="24" rx="3" fill="ICON"/><path d="M8 14l16 12 16-12" stroke="BG" stroke-width="3" fill="none"/>`,
+            domain: `<circle cx="24" cy="24" r="16" fill="none" stroke="ICON" stroke-width="3"/><path d="M8 24h32M24 8c5 5 5 24 0 32M24 8c-5 5-5 24 0 32" fill="none" stroke="ICON" stroke-width="2.5"/>`,
+            bank: `<polygon points="24,10 8,20 40,20" fill="ICON"/><rect x="10" y="22" width="28" height="3" fill="ICON"/><rect x="12" y="27" width="4" height="10" fill="ICON"/><rect x="18" y="27" width="4" height="10" fill="ICON"/><rect x="26" y="27" width="4" height="10" fill="ICON"/><rect x="32" y="27" width="4" height="10" fill="ICON"/><rect x="8" y="38" width="32" height="3" fill="ICON"/>`,
+            org: `<path d="M14 38V14h20v24M19 19h3M26 19h3M19 25h3M26 25h3M19 31h3M26 31h3" stroke="ICON" stroke-width="3" fill="none"/>`,
+            info: `<path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="ICON"/><path d="M28 10v10h10" fill="MID"/><path d="M17 26h14M17 31h10" stroke="BG" stroke-width="2" stroke-linecap="round"/>`,
+            
+            location: `<path d="M24 10a10 10 0 0 0-10 10c0 7.5 10 18 10 18s10-10.5 10-18a10 10 0 0 0-10-10zm0 13a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="ICON"/>`,
+            chat: `<path d="M12 12h24a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-8l-8 6v-6h-4a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4z" fill="ICON"/>`,
+            card: `<rect x="8" y="12" width="32" height="24" rx="4" fill="ICON"/><rect x="8" y="18" width="32" height="5" fill="BG"/><circle cx="15" cy="30" r="2.5" fill="MID"/><circle cx="21" cy="30" r="2.5" fill="MID"/>`,
+            car: `<path d="M10 26l3-8a3 3 0 0 1 3-2h16a3 3 0 0 1 3 2l3 8v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-2H14v2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V26zm5-2a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm18 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="ICON"/>`,
+            passport: `<rect x="12" y="8" width="24" height="32" rx="3" fill="ICON"/><rect x="17" y="14" width="14" height="10" rx="1" fill="BG"/><rect x="17" y="27" width="14" height="2" fill="BG"/><rect x="17" y="32" width="10" height="2" fill="BG"/>`,
+            media: `<rect x="8" y="12" width="32" height="24" rx="4" fill="none" stroke="ICON" stroke-width="3"/><circle cx="18" cy="20" r="3" fill="ICON"/><path d="M8 32l9-9 7 7 6-6 10 10" fill="none" stroke="ICON" stroke-width="2.5"/>`,
+            device: `<rect x="12" y="12" width="24" height="16" rx="2" fill="ICON"/><path d="M8 32h32a2 2 0 0 1 2 2v2H6v-2a2 2 0 0 1-2-2z" fill="ICON"/>`,
+            contract: `<path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="ICON"/><path d="M28 10v10h10" fill="MID"/><circle cx="28" cy="32" r="5" fill="none" stroke="BG" stroke-width="2"/>`
         };
 
+        const themeConfig = {
+            dark: { bg: '#0b0c0e', dot: '#1e222a', icon: '#f0f2f5', iconBg: '#131519', iconMid: '#6366f1', text: '#f0f2f5', stroke: '#0b0c0e', edge: '#4f566b', edgeHighlight: '#818cf8', label: '#94a3b8', panelBg: '#131519', cardBg: '#1a1d24', cardHover: '#242934', btnBg: '#1e222b', btnHover: '#2b303c', actionBtnBg: '#2b303c', actionBtnHover: '#383e50', inputBg: '#131519', textMuted: '#8a929e' },
+            blood: { bg: '#0f0a0c', dot: '#2e151b', icon: '#fde8ef', iconBg: '#181014', iconMid: '#e11d48', text: '#fde8ef', stroke: '#0f0a0c', edge: '#6b2432', edgeHighlight: '#fb7185', label: '#fda4af', panelBg: '#181014', cardBg: '#22151b', cardHover: '#2f1c25', btnBg: '#2c1822', btnHover: '#3d202e', actionBtnBg: '#3d202e', actionBtnHover: '#52233b', inputBg: '#181014', textMuted: '#be123c' },
+            light: { bg: '#f8fafc', dot: '#e2e8f0', icon: '#0f172a', iconBg: '#ffffff', iconMid: '#64748b', text: '#0f172a', stroke: '#f8fafc', edge: '#cbd5e1', edgeHighlight: '#0f172a', label: '#64748b', panelBg: '#ffffff', cardBg: '#f1f5f9', cardHover: '#e2e8f0', btnBg: '#e2e8f0', btnHover: '#cbd5e1', actionBtnBg: '#e2e8f0', actionBtnHover: '#cbd5e1', inputBg: '#ffffff', textMuted: '#64748b' },
+            graphite: { bg: '#09090b', dot: '#27272a', icon: '#f4f4f5', iconBg: '#18181b', iconMid: '#71717a', text: '#f4f4f5', stroke: '#09090b', edge: '#52525b', edgeHighlight: '#a1a1aa', label: '#a1a1aa', panelBg: '#121215', cardBg: '#18181b', cardHover: '#27272a', btnBg: '#27272a', btnHover: '#3f3f46', actionBtnBg: '#27272a', actionBtnHover: '#3f3f46', inputBg: '#121215', textMuted: '#71717a' }
+        };
+
+        let currentTheme = 'dark';
+        let currentArrowStyle = 'vee';
+
+        function createThemedIcons(themeName) {
+            const t = themeConfig[themeName] || themeConfig.dark;
+            const result = {};
+            Object.keys(iconPaths).forEach(type => {
+                const body = iconPaths[type]
+                    .replaceAll('ICON', t.icon)
+                    .replaceAll('BG', t.iconBg)
+                    .replaceAll('MID', t.iconMid);
+                result[type] = makeSvg(body);
+            });
+            return result;
+        }
+
+        let icons = createThemedIcons('dark');
+
+        function updateNodeIcons() {
+            nodes.forEach(n => {
+                if (n.type && icons[n.type]) {
+                    nodes.update({ id: n.id, image: icons[n.type] });
+                }
+            });
+        }
+
         function formatLabel(str) {
-            if (str.length > 16 && (str.startsWith('0x') || str.startsWith('bc1') || str.length > 25)) {
+            if (str.length > 20 && (str.startsWith('0x') || str.startsWith('bc1') || str.length > 25)) {
                 return str.substring(0, 6) + '...' + str.substring(str.length - 4);
             }
             return str;
@@ -299,31 +565,95 @@
 
         const container = document.getElementById('network');
         const data = { nodes: nodes, edges: edges };
+
         const options = {
             nodes: {
                 shape: 'image',
                 size: 30,
-                font: { color: '#e5e5e5', size: 10, face: 'JetBrains Mono', strokeWidth: 3, strokeColor: '#121212' }
+                borderWidth: 0,
+                borderWidthSelected: 0,
+                shadow: false,
+                scaling: { min: 26, max: 34 },
+                chosen: {
+                    node: function(values, id, selected, hovering) {
+                        if (selected) values.size = 34;
+                        else if (hovering) values.size = 32;
+                    },
+                    label: function(values, id, selected, hovering) {
+                        if (selected || hovering) values.size = 11;
+                    }
+                },
+                font: {
+                    color: '#e5e5e5',
+                    size: 10,
+                    face: 'Open Sans',
+                    strokeWidth: 4,
+                    strokeColor: '#121212'
+                }
             },
             edges: {
-                color: { color: '#52525b', highlight: '#888888', hover: '#888888' },
-                width: 1.2,
-                selectionWidth: 1.5,
+                color: {
+                    color: '#4f566b',
+                    highlight: '#818cf8',
+                    hover: '#818cf8',
+                    inherit: false
+                },
+                width: 1.5,
+                selectionWidth: 2.2,
+                endPointOffset: {
+                    from: 25,
+                    to: 25
+                },
+                arrowStrikethrough: false,
                 arrows: {
                     to: {
                         enabled: true,
-                        scaleFactor: 0.35,
-                        type: 'arrow'
+                        scaleFactor: 0.5,
+                        type: 'vee'
                     }
                 },
-                font: { color: '#888888', size: 9, face: 'JetBrains Mono', strokeWidth: 3, strokeColor: '#121212' },
-                smooth: { enabled: false }
+                shadow: false,
+                font: {
+                    color: '#9a9a9a',
+                    size: 9,
+                    face: 'Open Sans',
+                    strokeWidth: 4,
+                    strokeColor: '#121212',
+                    align: 'horizontal'
+                },
+                smooth: {
+                    enabled: true,
+                    type: 'continuous',
+                    roundness: 0.12
+                }
             },
             physics: {
+                enabled: true,
                 solver: 'forceAtlas2Based',
-                forceAtlas2Based: { gravitationalConstant: -120, centralGravity: 0.005, springLength: 180 }
+                forceAtlas2Based: {
+                    gravitationalConstant: -150,
+                    centralGravity: 0.008,
+                    springLength: 190,
+                    springConstant: 0.035,
+                    damping: 0.72,
+                    avoidOverlap: 0.8
+                },
+                stabilization: {
+                    enabled: true,
+                    iterations: 180,
+                    updateInterval: 25,
+                    fit: true
+                },
+                minVelocity: 0.5,
+                maxVelocity: 30
             },
-            interaction: { hover: true, zoomView: true, dragNodes: true }
+            interaction: {
+                hover: true,
+                tooltipDelay: 120,
+                zoomView: true,
+                dragNodes: true,
+                hideEdgesOnDrag: false
+            }
         };
 
         const network = new vis.Network(container, data, options);
@@ -333,13 +663,13 @@
                 const clickedId = params.nodes[0];
                 if (!linkSourceId) {
                     linkSourceId = clickedId;
-                    nodes.update({ id: clickedId, font: { color: '#ffffff' } });
+                    nodes.update({ id: clickedId, font: { color: '#818cf8' } });
                 } else if (linkSourceId === clickedId) {
-                    nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                    nodes.update({ id: linkSourceId, font: { color: themeConfig[currentTheme].text } });
                     linkSourceId = null;
                 } else {
                     edges.add({ from: linkSourceId, to: clickedId });
-                    nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                    nodes.update({ id: linkSourceId, font: { color: themeConfig[currentTheme].text } });
                     linkSourceId = null;
                     updateSelects();
                 }
@@ -351,15 +681,157 @@
                 const targetId = params.nodes[0];
                 if (targetId !== linkSourceId) {
                     edges.add({ from: linkSourceId, to: targetId });
-                    nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                    nodes.update({ id: linkSourceId, font: { color: themeConfig[currentTheme].text } });
                     linkSourceId = null;
                     updateSelects();
                 }
             } else if (linkSourceId && params.nodes.length === 0) {
-                nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                nodes.update({ id: linkSourceId, font: { color: themeConfig[currentTheme].text } });
                 linkSourceId = null;
             }
         });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && 
+                document.activeElement.tagName !== 'INPUT' && 
+                document.activeElement.tagName !== 'SELECT') {
+                
+                const selectedNodes = network.getSelectedNodes();
+                const selectedEdges = network.getSelectedEdges();
+
+                if (selectedNodes.length > 0) {
+                    selectedNodes.forEach(id => nodes.remove(id));
+                    updateSelects();
+                }
+                if (selectedEdges.length > 0) {
+                    selectedEdges.forEach(id => edges.remove(id));
+                }
+            }
+        });
+
+        function applyTheme(themeName) {
+            if (!themeConfig[themeName]) themeName = 'dark';
+            currentTheme = themeName;
+
+            const t = themeConfig[themeName];
+
+            const root = document.documentElement;
+            root.style.setProperty('--bg-main', t.bg);
+            root.style.setProperty('--text-main', t.text);
+            root.style.setProperty('--text-muted', t.textMuted);
+            root.style.setProperty('--panel-bg', t.panelBg);
+            root.style.setProperty('--drawer-bg', t.cardBg);
+            root.style.setProperty('--card-bg', t.cardBg);
+            root.style.setProperty('--card-hover', t.cardHover);
+            root.style.setProperty('--btn-bg', t.btnBg);
+            root.style.setProperty('--btn-hover', t.btnHover);
+            root.style.setProperty('--action-btn-bg', t.actionBtnBg);
+            root.style.setProperty('--action-btn-hover', t.actionBtnHover);
+            root.style.setProperty('--input-bg', t.inputBg);
+
+            container.style.backgroundImage = `radial-gradient(${t.dot} 1.2px, transparent 1.2px)`;
+
+            icons = createThemedIcons(themeName);
+            updateNodeIcons();
+
+            network.setOptions({
+                nodes: {
+                    font: {
+                        color: t.text,
+                        strokeColor: t.stroke
+                    }
+                },
+                edges: {
+                    color: {
+                        color: t.edge,
+                        highlight: t.edgeHighlight,
+                        hover: t.edgeHighlight,
+                        inherit: false
+                    },
+                    font: {
+                        color: t.label,
+                        strokeColor: t.bg
+                    }
+                }
+            });
+
+            const status = document.getElementById('themeStatus');
+            if (status) {
+                const names = { dark: 'Тёмная', blood: 'Кровавая', light: 'Светлая', graphite: 'Графит' };
+                status.innerText = `Тема: ${names[themeName]}`;
+            }
+
+            localStorage.setItem('exo-theme', themeName);
+        }
+
+        function applyArrowStyle(style) {
+            const allowed = ['vee', 'arrow', 'bar', 'circle', 'none'];
+            if (!allowed.includes(style)) style = 'vee';
+            currentArrowStyle = style;
+
+            if (style === 'none') {
+                network.setOptions({ edges: { arrows: { to: { enabled: false } } } });
+            } else {
+                network.setOptions({
+                    edges: {
+                        arrows: {
+                            to: {
+                                enabled: true,
+                                scaleFactor: style === 'vee' ? 0.5 : 0.4,
+                                type: style
+                            }
+                        }
+                    }
+                });
+            }
+
+            localStorage.setItem('exo-arrow-style', style);
+        }
+
+        function togglePhysics(val) {
+            const isPhysicsEnabled = parseInt(val) === 1;
+            network.setOptions({ physics: { enabled: isPhysicsEnabled } });
+            const label = document.getElementById('physicsLabel');
+            if (label) label.innerText = isPhysicsEnabled ? 'Физика графа' : 'Свободный (Без физики)';
+            localStorage.setItem('exo-physics', isPhysicsEnabled ? '1' : '0');
+        }
+
+        function resetVisualizationSettings() {
+            currentTheme = 'dark';
+            currentArrowStyle = 'vee';
+
+            const themeSelect = document.getElementById('themeSelect');
+            const arrowSelect = document.getElementById('arrowSelect');
+            const physicsSlider = document.getElementById('physicsSlider');
+
+            if (themeSelect) themeSelect.value = 'dark';
+            if (arrowSelect) arrowSelect.value = 'vee';
+            if (physicsSlider) physicsSlider.value = '1';
+
+            applyTheme('dark');
+            applyArrowStyle('vee');
+            togglePhysics('1');
+        }
+
+        function loadVisualizationSettings() {
+            const savedTheme = localStorage.getItem('exo-theme') || 'dark';
+            const savedArrow = localStorage.getItem('exo-arrow-style') || 'vee';
+            const savedPhysics = localStorage.getItem('exo-physics') !== null ? localStorage.getItem('exo-physics') : '1';
+
+            const themeSelect = document.getElementById('themeSelect');
+            const arrowSelect = document.getElementById('arrowSelect');
+            const physicsSlider = document.getElementById('physicsSlider');
+
+            if (themeSelect) themeSelect.value = savedTheme;
+            if (arrowSelect) arrowSelect.value = savedArrow;
+            if (physicsSlider) physicsSlider.value = savedPhysics;
+
+            applyTheme(savedTheme);
+            applyArrowStyle(savedArrow);
+            togglePhysics(savedPhysics);
+        }
+
+        loadVisualizationSettings();
 
         container.addEventListener('dragover', (e) => e.preventDefault());
         container.addEventListener('drop', (e) => {
@@ -403,7 +875,7 @@
             nodes.forEach(n => {
                 from.innerHTML += `<option value="${n.id}">${n.fullLabel}</option>`;
                 to.innerHTML += `<option value="${n.id}">${n.fullLabel}</option>`;
-                if (n.type === 'crypto') {
+                if (n.type === 'crypto' || n.type === 'person') {
                     cryptoSelect.innerHTML += `<option value="${n.id}">${n.fullLabel}</option>`;
                 }
             });
@@ -423,8 +895,8 @@
                 label: formatLabel(rawLabel),
                 fullLabel: rawLabel,
                 title: rawLabel,
-                image: icons[type],
-                type: type
+                image: icons[type] || icons.info,
+                type: type || 'info'
             });
 
             updateSelects();
@@ -432,10 +904,12 @@
         }
 
         function addEdge() {
-            const from = document.getElementById('fromNode').value;
-            const to = document.getElementById('toNode').value;
-            if (from && to && from !== to) {
-                edges.add({ from: parseInt(from), to: parseInt(to) });
+            const fromStr = document.getElementById('fromNode').value;
+            const toStr = document.getElementById('toNode').value;
+            if (fromStr && toStr && fromStr !== toStr) {
+                const fromId = isNaN(fromStr) ? fromStr : parseInt(fromStr);
+                const toId = isNaN(toStr) ? toStr : parseInt(toStr);
+                edges.add({ from: fromId, to: toId });
             }
         }
 
@@ -486,16 +960,6 @@
             };
             reader.readAsText(file);
         }
-
-        document.addEventListener('keydown', (e) => {
-            if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT') {
-                const selected = network.getSelectedNodes();
-                if (selected.length > 0) {
-                    selected.forEach(id => nodes.remove(id));
-                    updateSelects();
-                }
-            }
-        });
 
         async function getCounterparties(address) {
             let counterparties = [];
@@ -574,9 +1038,10 @@
             const btn = document.getElementById('scanBtn');
             btn.disabled = true;
 
-            let queue = [{ id: parseInt(targetId), depth: 1 }];
+            const targetKey = isNaN(targetId) ? targetId : parseInt(targetId);
+            let queue = [{ id: targetKey, depth: 1 }];
             let visited = new Set();
-            visited.add(targetId.toString());
+            visited.add(targetKey.toString());
 
             let totalNodesAdded = 0;
 
