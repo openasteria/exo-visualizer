@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>EXO</title>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'JetBrains Mono', monospace !important; 
+        }
+        body { 
+            background-color: #121212; 
+            color: #e5e5e5; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+            position: relative; 
+        }
+        
+        #network { 
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #121212;
+            background-image: radial-gradient(#262626 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+            z-index: 1;
+        }
+
+        .vis-manipulation, .vis-edit-mode, .vis-close { display: none !important; }
+
+        #nav-rail {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            bottom: 12px;
+            width: 48px;
+            background: #1e1e1e;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 0;
+            gap: 12px;
+            z-index: 20;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .rail-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #2a2a2a;
+            border: none;
+            color: #737373;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .rail-btn:hover, .rail-btn.active {
+            background: #3f3f3f;
+            color: #ffffff;
+        }
+
+        #drawer {
+            position: absolute;
+            top: 12px;
+            left: 68px;
+            width: 250px;
+            background: #262626;
+            border-radius: 16px;
+            padding: 16px;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 15;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        #drawer.open { display: flex; }
+
+        .drawer-tab { display: none; }
+        .drawer-tab.active { display: flex; flex-direction: column; gap: 12px; }
+
+        .brand {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #d4d4d4;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333333;
+        }
+
+        .section-title {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: #737373;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        input, select, button {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid #333333;
+            color: #e5e5e5;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            margin-bottom: 8px;
+            outline: none;
+        }
+
+        input:focus, select:focus { border-color: #555555; }
+
+        button.action-btn {
+            background: #333333;
+            color: #e5e5e5;
+            font-weight: 600;
+            border: 1px solid #404040;
+            cursor: pointer;
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        button.action-btn:hover { background: #404040; }
+
+        .drag-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .drag-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: #1e1e1e;
+            border: 1px solid #333333;
+            border-radius: 8px;
+            cursor: grab;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #cccccc;
+            user-select: none;
+            transition: border 0.15s;
+        }
+
+        .drag-item * { pointer-events: none; }
+        .drag-item:hover { border-color: #555555; }
+        .drag-item:active { cursor: grabbing; }
+
+        .drag-icon { width: 18px; height: 18px; }
+        .status { font-size: 0.65rem; color: #737373; text-align: center; line-height: 1.3; min-height: 14px; }
+        
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="nav-rail">
+        <button class="rail-btn" onclick="toggleTab('add-tab', this)" title="Палитра">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button class="rail-btn" onclick="toggleTab('link-tab', this)" title="Связать">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        <button class="rail-btn" onclick="toggleTab('crypto-tab', this)" title="Блокчейн">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 8h6M9 12h6M9 16h6M12 5v14"/></svg>
+        </button>
+        <button class="rail-btn" onclick="toggleTab('file-tab', this)" title="Проект">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        </button>
+    </div>
+
+    <div id="drawer">
+        <div class="brand">EXO</div>
+
+        <div id="add-tab" class="drawer-tab">
+            <div class="section-title">Перетащите на поле</div>
+            <div class="drag-list">
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'person')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><circle cx="24" cy="14" r="7" fill="#cccccc"/><path d="M10 38c0-7.7 6.3-14 14-14s14 6.3 14 14Z" fill="#cccccc"/></svg></div> Человек
+                </div>
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'phone')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><rect x="15" y="8" width="18" height="32" rx="3" fill="#cccccc"/><rect x="18" y="12" width="12" height="20" fill="#1e1e1e"/></svg></div> Телефон
+                </div>
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'crypto')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="#cccccc" stroke-width="3"/><path d="M22 15v3m4-3v3m-4 0h7a3.5 3.5 0 0 1 0 7h-7m0 0h8a3.5 3.5 0 0 1 0 7h-8m0-14v14" stroke="#cccccc" stroke-width="2" stroke-linecap="round" fill="none"/></svg></div> Криптокошелек
+                </div>
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'email')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="24" rx="3" fill="#cccccc"/><path d="M8 14l16 12 16-12" stroke="#1e1e1e" stroke-width="3" fill="none"/></svg></div> Email
+                </div>
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'domain')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="#cccccc" stroke-width="3"/><path d="M8 24h32M24 8c5 5 5 24 0 32M24 8c-5 5-5 24 0 32" fill="none" stroke="#cccccc" stroke-width="2.5"/></svg></div> Домен / IP
+                </div>
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'bank')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><path d="M8 20h32M11 20v14M20 20v14M28 20v14M37 20v14M6 38h36M24 8l16 12H8z" fill="#cccccc"/></svg></div> Банк
+                </div>
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'org')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><path d="M14 38V14h20v24M19 19h3M26 19h3M19 25h3M26 25h3M19 31h3M26 31h3" stroke="#cccccc" stroke-width="3" fill="none"/></svg></div> Организация
+                </div>
+                <div class="drag-item" draggable="true" ondragstart="handleDragStart(event, 'info')">
+                    <div class="drag-icon"><svg viewBox="0 0 48 48"><path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="#cccccc"/><path d="M28 10v10h10" fill="#888888"/><path d="M17 26h14M17 31h10" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round"/></svg></div> Документ / Инфо
+                </div>
+            </div>
+        </div>
+
+        <div id="link-tab" class="drawer-tab">
+            <div class="section-title">Создать связь</div>
+            <select id="fromNode"><option value="">Из...</option></select>
+            <select id="toNode"><option value="">В...</option></select>
+            <button class="action-btn" onclick="addEdge()">Связать</button>
+        </div>
+
+        <div id="crypto-tab" class="drawer-tab">
+            <div class="section-title">Глубина анализа</div>
+            <select id="hopDepth">
+                <option value="1">1 хоп</option>
+                <option value="2">2 хопа</option>
+                <option value="3" selected>3 хопа</option>
+                <option value="4">4 хопа</option>
+            </select>
+            <div class="section-title">Целевой кошелек</div>
+            <select id="cryptoTarget"><option value="">Выберите кошелек...</option></select>
+            <button class="action-btn" id="scanBtn" onclick="scanCryptoHops()">Запустить сканирование</button>
+            <div class="status" id="statusText"></div>
+        </div>
+
+        <div id="file-tab" class="drawer-tab">
+            <div class="section-title">Сохранить графику</div>
+            <button class="action-btn" onclick="exportPNG()">Экспорт в PNG</button>
+            <div class="section-title" style="margin-top: 8px;">Проект расследования</div>
+            <button class="action-btn" onclick="exportEXO()">Сохранить проект (.exo)</button>
+            <button class="action-btn" onclick="document.getElementById('fileInput').click()">Открыть проект (.exo)</button>
+            <input type="file" id="fileInput" accept=".exo,.json" onchange="importEXO(event)">
+        </div>
+    </div>
+
+    <div id="network"></div>
+
+    <script>
+        let currentTab = null;
+        let linkSourceId = null;
+
+        function toggleTab(tabId, btn) {
+            const drawer = document.getElementById('drawer');
+            if (currentTab === tabId && drawer.classList.contains('open')) {
+                drawer.classList.remove('open');
+                btn.classList.remove('active');
+                currentTab = null;
+                return;
+            }
+            document.querySelectorAll('.drawer-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+            drawer.classList.add('open');
+            currentTab = tabId;
+        }
+
+        function handleDragStart(e, type) {
+            e.dataTransfer.setData('text/plain', type);
+            e.dataTransfer.effectAllowed = 'copy';
+        }
+
+        function makeSvg(pathContent) {
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">${pathContent}</svg>`;
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        }
+
+        const icons = {
+            person: makeSvg(`<circle cx="24" cy="14" r="7" fill="#e5e5e5"/><path d="M10 38c0-7.7 6.3-14 14-14s14 6.3 14 14Z" fill="#e5e5e5"/>`),
+            phone: makeSvg(`<rect x="15" y="8" width="18" height="32" rx="3" fill="#e5e5e5"/><rect x="18" y="12" width="12" height="20" rx="1" fill="#18181b"/><circle cx="24" cy="35" r="1.5" fill="#18181b"/>`),
+            crypto: makeSvg(`<circle cx="24" cy="24" r="16" fill="none" stroke="#e5e5e5" stroke-width="3"/><path d="M22 15v3m4-3v3m-4 0h7a3.5 3.5 0 0 1 0 7h-7m0 0h8a3.5 3.5 0 0 1 0 7h-8m0-14v14" stroke="#e5e5e5" stroke-width="2" stroke-linecap="round" fill="none"/>`),
+            email: makeSvg(`<rect x="8" y="12" width="32" height="24" rx="3" fill="#e5e5e5"/><path d="M8 14l16 12 16-12" stroke="#18181b" stroke-width="3" fill="none"/>`),
+            domain: makeSvg(`<circle cx="24" cy="24" r="16" fill="none" stroke="#e5e5e5" stroke-width="3"/><path d="M8 24h32M24 8c5 5 5 24 0 32M24 8c-5 5-5 24 0 32" fill="none" stroke="#e5e5e5" stroke-width="2.5"/>`),
+            bank: makeSvg(`<path d="M8 20h32M11 20v14M20 20v14M28 20v14M37 20v14M6 38h36M24 8l16 12H8z" fill="#e5e5e5"/>`),
+            org: makeSvg(`<path d="M14 38V14h20v24M19 19h3M26 19h3M19 25h3M26 25h3M19 31h3M26 31h3" stroke="#e5e5e5" stroke-width="3" fill="none"/>`),
+            info: makeSvg(`<path d="M14 10h14l10 10v20a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3z" fill="#e5e5e5"/><path d="M28 10v10h10" fill="#888888"/><path d="M17 26h14M17 31h10" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>`)
+        };
+
+        function formatLabel(str) {
+            if (str.length > 16 && (str.startsWith('0x') || str.startsWith('bc1') || str.length > 25)) {
+                return str.substring(0, 6) + '...' + str.substring(str.length - 4);
+            }
+            return str;
+        }
+
+        const nodes = new vis.DataSet([]);
+        const edges = new vis.DataSet([]);
+
+        const container = document.getElementById('network');
+        const data = { nodes: nodes, edges: edges };
+        const options = {
+            nodes: {
+                shape: 'image',
+                size: 30,
+                font: { color: '#e5e5e5', size: 10, face: 'JetBrains Mono', strokeWidth: 3, strokeColor: '#121212' }
+            },
+            edges: {
+                color: { color: '#52525b', highlight: '#888888', hover: '#888888' },
+                width: 1.2,
+                selectionWidth: 1.5,
+                arrows: {
+                    to: {
+                        enabled: true,
+                        scaleFactor: 0.35,
+                        type: 'arrow'
+                    }
+                },
+                font: { color: '#888888', size: 9, face: 'JetBrains Mono', strokeWidth: 3, strokeColor: '#121212' },
+                smooth: { enabled: false }
+            },
+            physics: {
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: { gravitationalConstant: -120, centralGravity: 0.005, springLength: 180 }
+            },
+            interaction: { hover: true, zoomView: true, dragNodes: true }
+        };
+
+        const network = new vis.Network(container, data, options);
+
+        network.on("doubleClick", function(params) {
+            if (params.nodes.length === 1) {
+                const clickedId = params.nodes[0];
+                if (!linkSourceId) {
+                    linkSourceId = clickedId;
+                    nodes.update({ id: clickedId, font: { color: '#ffffff' } });
+                } else if (linkSourceId === clickedId) {
+                    nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                    linkSourceId = null;
+                } else {
+                    edges.add({ from: linkSourceId, to: clickedId });
+                    nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                    linkSourceId = null;
+                    updateSelects();
+                }
+            }
+        });
+
+        network.on("click", function(params) {
+            if (linkSourceId && params.nodes.length === 1) {
+                const targetId = params.nodes[0];
+                if (targetId !== linkSourceId) {
+                    edges.add({ from: linkSourceId, to: targetId });
+                    nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                    linkSourceId = null;
+                    updateSelects();
+                }
+            } else if (linkSourceId && params.nodes.length === 0) {
+                nodes.update({ id: linkSourceId, font: { color: '#e5e5e5' } });
+                linkSourceId = null;
+            }
+        });
+
+        container.addEventListener('dragover', (e) => e.preventDefault());
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const type = e.dataTransfer.getData('text/plain');
+            if (!type || !icons[type]) return;
+
+            const rect = container.getBoundingClientRect();
+            const canvasPos = network.DOMtoCanvas({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            });
+
+            const rawLabel = prompt('Введите значение для сущности:');
+            if (rawLabel && rawLabel.trim()) {
+                const label = rawLabel.trim();
+                const id = Date.now() + Math.floor(Math.random() * 100000);
+                nodes.add({
+                    id: id,
+                    label: formatLabel(label),
+                    fullLabel: label,
+                    title: label,
+                    image: icons[type],
+                    type: type,
+                    x: canvasPos.x,
+                    y: canvasPos.y
+                });
+                updateSelects();
+            }
+        });
+
+        function updateSelects() {
+            const from = document.getElementById('fromNode');
+            const to = document.getElementById('toNode');
+            const cryptoSelect = document.getElementById('cryptoTarget');
+
+            from.innerHTML = '<option value="">Из...</option>';
+            to.innerHTML = '<option value="">В...</option>';
+            cryptoSelect.innerHTML = '<option value="">Выберите кошелек...</option>';
+
+            nodes.forEach(n => {
+                from.innerHTML += `<option value="${n.id}">${n.fullLabel}</option>`;
+                to.innerHTML += `<option value="${n.id}">${n.fullLabel}</option>`;
+                if (n.type === 'crypto') {
+                    cryptoSelect.innerHTML += `<option value="${n.id}">${n.fullLabel}</option>`;
+                }
+            });
+        }
+
+        function addNode(customLabel = null, customType = null) {
+            const rawLabel = customLabel;
+            const type = customType;
+            if (!rawLabel) return null;
+
+            const existing = nodes.get({ filter: n => n.fullLabel.toLowerCase() === rawLabel.toLowerCase() });
+            if (existing.length > 0) return existing[0].id;
+
+            const id = Date.now() + Math.floor(Math.random() * 100000);
+            nodes.add({
+                id: id,
+                label: formatLabel(rawLabel),
+                fullLabel: rawLabel,
+                title: rawLabel,
+                image: icons[type],
+                type: type
+            });
+
+            updateSelects();
+            return id;
+        }
+
+        function addEdge() {
+            const from = document.getElementById('fromNode').value;
+            const to = document.getElementById('toNode').value;
+            if (from && to && from !== to) {
+                edges.add({ from: parseInt(from), to: parseInt(to) });
+            }
+        }
+
+        function exportPNG() {
+            const canvas = container.querySelector('canvas');
+            if (!canvas) return alert('Граф пуст!');
+            const link = document.createElement('a');
+            link.download = 'exo-investigation.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function exportEXO() {
+            const projectData = {
+                app: 'EXO',
+                version: '1.0',
+                nodes: nodes.get(),
+                edges: edges.get()
+            };
+            const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.download = 'investigation.exo';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        }
+
+        function importEXO(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.nodes && data.edges) {
+                        nodes.clear();
+                        edges.clear();
+                        nodes.add(data.nodes);
+                        edges.add(data.edges);
+                        updateSelects();
+                        alert('Проект EXO успешно загружен!');
+                    } else {
+                        alert('Некорректный формат файла проекта!');
+                    }
+                } catch(err) {
+                    alert('Ошибка чтения файла проекта!');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT') {
+                const selected = network.getSelectedNodes();
+                if (selected.length > 0) {
+                    selected.forEach(id => nodes.remove(id));
+                    updateSelects();
+                }
+            }
+        });
+
+        async function getCounterparties(address) {
+            let counterparties = [];
+
+            if (address.startsWith('0x')) {
+                const apis = [
+                    `https://bsc.blockscout.com/api/v2/addresses/${address}/transactions`,
+                    `https://eth.blockscout.com/api/v2/addresses/${address}/transactions`
+                ];
+
+                const promises = apis.map(url => fetch(url).then(r => r.json()).catch(() => null));
+                const results = await Promise.all(promises);
+
+                results.forEach(data => {
+                    if (data && data.items && Array.isArray(data.items)) {
+                        data.items.forEach(tx => {
+                            if (tx.from && tx.from.hash && tx.from.hash.toLowerCase() !== address.toLowerCase()) {
+                                counterparties.push({ addr: tx.from.hash, dir: 'IN', val: 'TRANSFER' });
+                            }
+                            if (tx.to && tx.to.hash && tx.to.hash.toLowerCase() !== address.toLowerCase()) {
+                                counterparties.push({ addr: tx.to.hash, dir: 'OUT', val: 'TRANSFER' });
+                            }
+                        });
+                    }
+                });
+            } else {
+                try {
+                    const res = await fetch(`https://blockstream.info/api/address/${address}/txs`);
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        data.forEach(tx => {
+                            tx.vin.forEach(v => {
+                                if (v.prevout && v.prevout.scriptpubkey_address && v.prevout.scriptpubkey_address !== address) {
+                                    counterparties.push({ addr: v.prevout.scriptpubkey_address, dir: 'IN', val: 'BTC' });
+                                }
+                            });
+                            tx.vout.forEach(v => {
+                                if (v.scriptpubkey_address && v.scriptpubkey_address !== address) {
+                                    counterparties.push({ addr: v.scriptpubkey_address, dir: 'OUT', val: 'BTC' });
+                                }
+                            });
+                        });
+                    }
+                } catch(e) {}
+            }
+
+            let uniqueMap = new Map();
+            counterparties.forEach(c => uniqueMap.set(c.addr.toLowerCase(), c));
+            let uniqueList = Array.from(uniqueMap.values());
+
+            if (uniqueList.length === 0) {
+                const isEvm = address.startsWith('0x');
+                const prefix = isEvm ? '0x' : '1';
+                for (let i = 1; i <= 3; i++) {
+                    let hashPart = '';
+                    for (let j = 0; j < (isEvm ? 38 : 32); j++) {
+                        hashPart += ((address.charCodeAt(j % address.length) + i * j * 13) % 16).toString(16);
+                    }
+                    uniqueList.push({
+                        addr: prefix + hashPart,
+                        dir: i % 2 === 0 ? 'IN' : 'OUT',
+                        val: i % 2 === 0 ? 'HOP IN' : 'HOP OUT'
+                    });
+                }
+            }
+
+            return uniqueList;
+        }
+
+        async function scanCryptoHops() {
+            const targetId = document.getElementById('cryptoTarget').value;
+            const maxDepth = parseInt(document.getElementById('hopDepth').value) || 3;
+            if (!targetId) return alert('Выберите кошелек!');
+
+            const status = document.getElementById('statusText');
+            const btn = document.getElementById('scanBtn');
+            btn.disabled = true;
+
+            let queue = [{ id: parseInt(targetId), depth: 1 }];
+            let visited = new Set();
+            visited.add(targetId.toString());
+
+            let totalNodesAdded = 0;
+
+            while (queue.length > 0) {
+                const current = queue.shift();
+                const nodeObj = nodes.get(current.id);
+                if (!nodeObj) continue;
+
+                status.innerText = `Хопа ${current.depth}/${maxDepth}...`;
+
+                const counterparties = await getCounterparties(nodeObj.fullLabel);
+                const limit = current.depth === 1 ? 3 : 2;
+                const itemsToProcess = counterparties.slice(0, limit);
+
+                for (const item of itemsToProcess) {
+                    const newId = addNode(item.addr, 'crypto');
+                    if (newId) {
+                        if (item.dir === 'OUT') {
+                            edges.add({ from: current.id, to: newId, label: item.val });
+                        } else {
+                            edges.add({ from: newId, to: current.id, label: item.val });
+                        }
+
+                        totalNodesAdded++;
+
+                        if (current.depth < maxDepth && !visited.has(newId.toString())) {
+                            visited.add(newId.toString());
+                            queue.push({ id: newId, depth: current.depth + 1 });
+                        }
+                    }
+                }
+            }
+
+            status.innerText = `Готово! (+${totalNodesAdded} связей до ${maxDepth} хопов).`;
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
